@@ -1,7 +1,7 @@
 # Iterate over one space with the following logic
 
 - Collect stage:
-	1. create an iterator and iterate over space for not note than `pause` items
+	1. create an iterator and iterate over space for not more than `pause` items
 	2. put items for update into temporary lua table
 	3. yield fiber, then reposition iterator to GT(`last selected tuple`)
 	4. if collected enough (`take`) tuples, switch to update phase

@@ -5,7 +5,7 @@ moonwalker
 	Iterate over one space with the following logic
 	
 	Collect stage:
-	1. create an iterator and iterate over space for not note than `pause` items
+	1. create an iterator and iterate over space for not more than `pause` items
 	2. put items for update into temporary lua table
 	3. yield fiber, then reposition iterator to GT(`last selected tuple`)
 	4. if collected enough (`take`) tuples, switch to update phase
@@ -30,6 +30,7 @@ moonwalker
 local fiber = require 'fiber'
 local log = require 'log'
 local ffi = require 'ffi'
+local clock = require 'clock'
 
 local M = {}
 
@@ -49,25 +50,6 @@ local function iiterator(index, itype, key)
 		if not state then return nil end
 		return tuple
 	end
-end
-
-if not pcall(ffi.typeof,"struct timeval") then
-	ffi.cdef[[
-		struct timeval {
-			uint64_t      tv_sec;
-			uint64_t      tv_usec;
-		};
-	]]
-end
-if not pcall(function() local t = ffi.C.gettimeofday end) then
-	ffi.cdef[[int gettimeofday(struct timeval *, void *);]]
-end
-local timeval = ffi.typeof("struct timeval");
-local C = ffi.C
-local function hitime()
-	local tv = timeval();
-	C.gettimeofday(tv,nil);
-	return tonumber(tv.tv_sec) + tonumber(tv.tv_usec)/1e6;
 end
 
 local function moonwalker(opts)
@@ -90,7 +72,7 @@ local function moonwalker(opts)
 	end
 
 	local size  = space:len()
-	local start = hitime()
+	local start = clock.time()
 	local prev  = start
 
 	if type(printevery) == 'string' then
@@ -133,15 +115,15 @@ local function moonwalker(opts)
 	local u = 0
 	local csw   = 0
 	local clock = 0
-	local clock1 = os.clock()
+	local clock1 = clock.proc()
 
 	while working do c = c + 1
 		if c % waitevery == 0 then
-			clock = clock + ( os.clock() - clock1 )
+			clock = clock + ( clock.proc() - clock1 )
 			csw = csw + 1
 			-- print("yield on ",c)
 			fiber.sleep( 0 )
-			clock1 = os.clock()
+			clock1 = clock.proc()
 			it = iiterator( index, box.index.GT, keyfields(v) )
 		end
 		v = it()
@@ -158,16 +140,16 @@ local function moonwalker(opts)
 		end
 		
 		if #toupdate >= takeby then
-			clock = clock + ( os.clock() - clock1 )
+			clock = clock + ( clock.proc() - clock1 )
 			csw = csw + 1
 			batch_update(toupdate)
-			clock1 = os.clock()
+			clock1 = clock.proc()
 			toupdate = {}
 			it = iiterator(index, box.index.GT, keyfields(v))
 		end
 		
 		if c % printevery == 0 then
-			local now = hitime()
+			local now = clock.time()
 			local r,e = pcall(function()
 				local run = now - start
 				local run1 = now - prev
