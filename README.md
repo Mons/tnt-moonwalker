@@ -1,34 +1,56 @@
-# Iterate over one space with the following logic
+<a href="http://tarantool.org">
+	<img src="https://avatars2.githubusercontent.com/u/2344919?v=2&s=250" align="right">
+</a>
 
-- Collect stage:
-	1. create an iterator and iterate over space for not more than `pause` items
-	2. put items for update into temporary lua table
-	3. yield fiber, then reposition iterator to GT(`last selected tuple`)
-	4. if collected enough (`take`) tuples, switch to update phase
+# Per-space updater for Tarantool 1.6+
 
-- Update stage:
+A Lua module for [Tarantool 1.6+](http://github.com/tarantool) that allows
+iterating over one space with the following logic:
 
-	1. iterate over temporary table
-	2. for each element call `actor`
-	3. reposition iterator to GT(`last selected tuple`), switch to collect phase
+1. Phase #1 (сollect):
+  1. Create an iterator and iterate over the space for not more than `pause` items.
+  2. Put items-to-update into a temporary Lua table.
+  3. Yield the fiber, then reposition the iterator to GT(`last selected tuple`).
+  4. If collected enough (`take`) tuples, switch to phase #2 (update).
+
+2. Phase #2 (update):
+
+  1. Iterate over the temporary table.
+  2. For each element, call the `actor` function.
+  3. Reposition the iterator to GT(`last selected tuple`) and switch back to
+     phase #1 (collect).
+
+## Table of contents
+
+* [Parameters](#parameters)
+* [Examples](#examples)
 
 ## Parameters
 
-+ examine: (optional, function:boolean) - called during collect phase. **must not yield**. 
-+ actor: (function, altname: updater) - called during update phase for every examined tuple
-+ pause: `1000` (number) - make fiber.yield after stepping over this count of items.
-+ take: `500` (number) - how many items should be collected before calling updates
-+ dryrun: `false` (boolean) - don't call actor, only print stats
-+ limit: `` (optional, number) - process not more than limit items (useful for testing)
-+ progress: `2%` (optional, string or number) - print progress message every N records or percent
+* `space` - the space to process.
+* `index` (optional) - the index to iterate by. If not defined, use the primary
+  index.
+* `examine`: (optional, function:boolean) - called during phase #1 (collect).
+  **Must not yield**. 
+* `actor`: (function, altname: updater) - called during phase #2 (update) for
+  every examined tuple.
+* `pause`: `1000` (number) - make `fiber.yield` after stepping over this number
+  of items.
+* `take`: `500` (number) - how many items should be collected before switching to
+  phase #2 (update).
+* `dryrun`: `false` (boolean) - don't call the actor, only print the statistics.
+* `limit`: `2^63` (optional, number) - process not more than this number of items.
+  Useful for testing.
+* `progress`: `2%` (optional, string or number) - print a progress message every
+  N records or percent.
 
 
-## Example
+## Examples
 
 ```lua
 local moonwalker = require 'moonwalker'
 
--- update the whole database, (the most simple example)
+-- update the whole database (the simplest example)
 moonwalker {
 	space = box.space.users;
 	actor = function(t)
@@ -38,11 +60,11 @@ moonwalker {
 	end;
 }
 
--- update database, add missed fields (example with examine)
+-- update the database, add missed fields (example with 'examine')
 moonwalker {
 	space = box.space.users;
 	examine = function(t)
-		return #t < 4; -- user tuple have only 3 fields
+		return #t < 4; -- user tuple has only 3 fields
 	end;
 	actor = function(t)
 		box.space.users:update({t[1]},{
@@ -51,12 +73,13 @@ moonwalker {
 	end;
 }
 
+-- iterate by a specific index
 moonwalker {
 	space = box.space.users;
 	index = box.space.users.index.name; -- iterate over index 'name'
-	pause = 100; -- be very polite, pause after every 100 records (but slow)
+	pause = 100; -- be very polite, but slow: pause after every 100 records
 	take  = 100; -- collect 100 items for update
-	limit = 1000; -- stop after examining only first 1000 tuples
+	limit = 1000; -- stop after examining the first 1000 tuples
 	examine = function(t)
 		return #t < 4;
 	end;
