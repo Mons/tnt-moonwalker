@@ -114,12 +114,12 @@ local function moonwalker(opts)
 	local c = 0
 	local u = 0
 	local csw   = 0
-	local clock = 0
+	local clock_sum = 0
 	local clock1 = clock.proc()
 
 	while working do c = c + 1
 		if c % waitevery == 0 then
-			clock = clock + ( clock.proc() - clock1 )
+			clock_sum = clock_sum + ( clock.proc() - clock1 )
 			csw = csw + 1
 			-- print("yield on ",c)
 			fiber.sleep( 0 )
@@ -140,7 +140,7 @@ local function moonwalker(opts)
 		end
 		
 		if #toupdate >= takeby then
-			clock = clock + ( clock.proc() - clock1 )
+			clock_sum = clock_sum + ( clock.proc() - clock1 )
 			csw = csw + 1
 			batch_update(toupdate)
 			clock1 = clock.proc()
@@ -162,7 +162,7 @@ local function moonwalker(opts)
 					100*c/size,
 					run,
 					c/run, rps1, run1,
-					1000*clock/csw,
+					1000*clock_sum/csw,
 					
 					(size - c)/rps1,
 					(size - c)/rps,
