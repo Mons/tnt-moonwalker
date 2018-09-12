@@ -60,7 +60,7 @@ local function moonwalker(opts)
 	local takeby = opts.take or 500
 	local examine = opts.examine
 	local updater = opts.actor or opts.updater
-	assert(type(updater) == 'function', "Need .actor funtion")
+	assert(type(updater) == 'function', "Need .actor function")
 	local dryrun = opts.dryrun or false
 	local limit = opts.limit or 2^63
 	local printevery = opts.progress or '2%'
