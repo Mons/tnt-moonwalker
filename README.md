@@ -2,6 +2,8 @@
 	<img src="https://avatars2.githubusercontent.com/u/2344919?v=2&s=250" align="right">
 </a>
 
+# This module is supported under [tarantool/moonwalker](https://github.com/tarantool/moonwalker)
+
 # Per-space updater for Tarantool 1.6+
 
 A Lua module for [Tarantool 1.6+](http://github.com/tarantool) that allows
